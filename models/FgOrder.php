@@ -15,6 +15,7 @@
  */
 class FgOrder extends RewriteAR
 {
+	private static $tableOperation="FG_OrderOperation_2";
 	/**
 	 * Returns the static model of the specified AR class.
 	 * @param string $className active record class name.
@@ -104,6 +105,13 @@ class FgOrder extends RewriteAR
 		$return_arr = array();
 		foreach ($this->mpackageItem as $key => $value) {
 			$return_arr["material"][$value->oMaterial->id]=$value->oMaterial->name;
+			$return_arr["mimage"][$value->oMaterial->id]= $value->oMaterial->image;
+			$questionModel = FgMaterialQuestion::model()->findAll('material_id=:material_id',array(':material_id'=>$value->oMaterial->id));
+			// echo count($questionModel);
+			$questionTag = (count($questionModel)==0)?(TbHtml::icon(TbHtml::ICON_REMOVE)):(TbHtml::icon(TbHtml::ICON_OK));
+			$return_arr['question'][$value->oMaterial->id] = $questionTag;
+			$remarkTag = ($value->oMaterial->remark=="")?("未建立成效"):($value->oMaterial->remark);
+			$return_arr['remark'][$value->oMaterial->id] = $remarkTag;
 			$brandModel = FgBrand::model()->findByPk($value->oMaterial->brand_id);
 			$return_arr["brand"][$brandModel->id]=$brandModel->name;
 		}
@@ -113,6 +121,20 @@ class FgOrder extends RewriteAR
 				break;
 			case 'brand':
 				return $return_arr['brand'][$brandModel->id];
+			break;
+			case 'mimage':
+				$imageTag = "";
+				foreach ($return_arr["mimage"] as $key => $value) {
+
+					  $imageTag = $imageTag.CHtml::image("/fashionguide/images/material/".$value);
+				}
+				return $imageTag;
+			break;
+			case 'question':				
+				return implode('<br>', $return_arr['question']);
+			break;
+			case 'remark':
+				return implode('<br>', $return_arr['remark']);
 			break;
 			default:
 				# code...
@@ -134,7 +156,21 @@ class FgOrder extends RewriteAR
 		}
 		return $subArr;
 	}
-
+    
+    //1117補上下方程式
+    public function getPlace(){
+    	// var_dump($this->orderItem);
+    	$placeArr = array();
+    	foreach ($this->orderItem as $key => $value) {
+    		$deviceModel = FgDevice::model()->findByPk($value->device_id);
+    		$branchModel = FgBranch::model()->findByPk($deviceModel->branch_id);
+    		$placeModel = FgPlace::model()->findByPk($branchModel->place_id);
+    		$placeArr[] = $placeModel->name;
+    		// var_dump($placeModel->name);
+    		// var_dump($value);
+    	}
+    	return $placeArr[0];
+    }
 	public function checkTag($tag){
 		if(!is_null($this->sub_tag)){
 			$arr = explode(",", $this->sub_tag);
@@ -170,8 +206,130 @@ class FgOrder extends RewriteAR
                     
                     return in_array($week, $arr);
                 }
-	
-	
+    
+
+    // 1126加上FG_OrderOperation_2
+    public function queryOrderOperation(){
+    	$table = self::$tableOperation;
+    	$sql = "SELECT * FROM `$table`";
+    	Yii::app()->dbfgmanage->createCommand($sql)->queryAll();
+    	
+    }
+    public function insertOrderOperation($post=""){
+    	$table = self::$tableOperation;
+    	if(isset($post) && $post){
+    		$device = implode(',', $_post['device_arr']);
+    		$member_id = Yii::app()->user->id;
+    		$statistic_id = $post['statistic_id'];
+    		$material_num = $post['material_num'];
+    		$create_date = date("Y-m-d H:i:s");
+    		$sql="INSERT INTO `$table`(`device`,`member_id`,`statistic_id`,`material_num`,`create_date`) 
+    		 VALUES($device,$member_id,$statistic_id,$material_num,$create_date)";
+    		 echo $sql;
+    	}
+    	
+    }
+	// 1124加上取得FG_Broadcast_Statistic_2資料
+    // _monthTableDiv.php會用到
+	public function ajaxGetStatistic($post=""){
+		$tableStatistic = "FG_Broadcast_Statistic_2";
+		$mergeArr = array();
+		//ajax傳值
+		if(isset($post) && $post){
+			// post設定
+			$s_date = $post['s_date'];
+    		$e_date = $post['e_date'];
+    		$materialNum = $post['materialNum'];
+    		$deviceIdArr = explode(',',$post['deviceIdArr']);
+    		$materialIdArr = explode(',', $post['materialIdArr']);
+    		//由小到大排序
+    		asort($deviceIdArr);
+    		// 處理post裝置
+    		
+    		
+    		// 回傳陣列periodArr
+    		$periodArr = array();
+			$sql = "select * from `$tableStatistic` ORDER BY  `period_date` ASC ";
+			$results = Yii::app()->dbfgmanage->createCommand($sql)->queryAll();
+			// 查詢裝置
+			$deviceSql = "SELECT * FROM `FG_Broadcast_Statistic_2` group by device_id order by device_id ASC";
+			$deviceResults = Yii::app()->dbfgmanage->createCommand($deviceSql)->queryAll();
+			foreach ($deviceIdArr as $key => $value) {
+				// 不足的日期補足
+				$length = (strtotime($e_date)-strtotime($s_date))/(24*60*60);
+				for($i=0;$i<=$length;$i++){
+					$spaceDate = date("Y-m-d",strtotime($s_date)+24*60*60*$i);
+					$spaceArr[$value][$spaceDate] = 
+						array(
+							"device_id" => $value,
+							"resultMsg" => 2,
+							"materialNum" => $materialNum,
+						); 
+				}
+			}
+			
+			// 讀取資料庫的素材數量
+			foreach ($results  as $key => $value) {
+				//判斷開始和結束日期
+				if($s_date<=$value['period_date']."23:59:59" && $e_date>=$value['period_date']){
+					// 判斷廣告機還是專案機
+					if($value['project_device']==0){
+						$adNumber = 16;
+						$currentQty = $materialNum+$value['current_qty'];
+					}else{
+						$adNumber = 0;
+					}
+					// 如果是null值，則不處理
+					if(!is_array($spaceArr[$value['device_id']])){
+						continue;
+					}
+					
+					
+					$periodArr[$value['device_id']][$value['period_date']] = 
+							array(
+								"device_id" => $value['device_id'],
+								"materialNum" => $materialNum,
+								"resultMsg" => ($adNumber<=$currentQty)?(0):(1),
+								"count"=>$value['current_qty'],
+							);
+						
+				}else{
+					// 不在開始和結束範圍內的資料
+					if($value['current_qty']){
+						$periodArr[$value['device_id']][$value['period_date']] = 
+							array(
+								"device_id" => $value['device_id'],
+								// "materialNum" => $materialNum,
+								"resultMsg" => 3,
+								"count"=>$value['current_qty'],
+							);
+					}else{
+						$periodArr[$value['device_id']][$value['period_date']] = 
+							array(
+								"device_id" => $value['device_id'],
+								"resultMsg" => 4,
+							);
+					}
+					
+				}
+			}
+			
+			// 兩個二維陣列合併
+			$periodArr = array_replace_recursive($spaceArr,$periodArr);
+			
+		
+			echo json_encode($periodArr);
+
+			return false;
+			// exit;
+			
+			
+		}else{
+			// 在view處理陣列
+			$sql = "select * from `$tableStatistic` ORDER BY  `period_date` ASC ";
+			return Yii::app()->dbfgmanage->createCommand($sql)->queryAll();
+		}
+	}
         
         
 }

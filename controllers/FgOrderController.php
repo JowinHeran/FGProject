@@ -281,6 +281,28 @@ class FgOrderController extends Controller
             
             echo $model->id;
         }
+        public function actionAjaxGetPeriod(){
+        	$periodModel = FgBroadcastPeriod::model()->findAll();
+        	return $periodModel;
+        }
+        // 1127加上接收裝置陣列和素材數量
+        public function actionGetAjaxCalendar(){
+        	if(!empty($_POST)){
+        		$post = $_POST;
+        		// 本來想要在呼叫sendAjax方法時，一起處理
+        		// $results = FgOrder::model()->ajaxGetStatistic($post);
+        		$this->renderPartial('_monthTableDiv',array('post'=>$post,'results'=>$results));
+
+        	}
+        }
+        // 1124加上取得FG_Broadcast_Statistic_2資料
+        public function actionAjaxGetStatistic(){
+        	if(isset($_POST)){
+        		$post = $_POST;
+        		$results = FgOrder::model()->ajaxGetStatistic($post);
+        	}
+        	
+        }
         
         
 }

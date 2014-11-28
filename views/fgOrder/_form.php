@@ -1,3 +1,134 @@
+<script type="text/javascript">
+    function sendAjax(){
+        var data = $("input[name='s_date'],input[name='e_date']").serializeArray();
+        var materialIdArr = Array();
+        var deviceIdArr = Array();
+        $("input[name='materials[]']").map(function(){materialIdArr.push($(this).val())});
+        $("input[name='devices[]']").map(function(){deviceIdArr.push($(this).val())});
+        data.push({name: "materialNum", value: $("input[name='materials[]']").length});
+        data.push({name: "materialIdArr" , value: materialIdArr});
+        data.push({name: "deviceIdArr", value: deviceIdArr});
+         $.ajax({
+            url:"<?php echo Yii::app()->createUrl("FG_Manage_2/FgOrder/GetAjaxCalendar")?>",
+            type:"post",
+            data:data,
+            dataType:'html',
+            beforeSend:function(){
+                $(".ajaxloading").show();
+            },
+            success:function(e){
+                $(".ajaxloading").hide();
+                $("div#calendar-results").html(e);
+                getAjax();
+            }
+            
+        });
+
+    }
+    function getAjax(){
+        var data = $("input[name='s_date'],input[name='e_date']").serializeArray();
+        // var deviceIdArr = $.makeArray($("input[name='devices[]"));
+        // var materialIdArr = $.makeArray($("input[name='materials[]"));
+        var materialIdArr = Array();
+        var deviceIdArr = Array();
+        $("input[name='materials[]']").map(function(){materialIdArr.push($(this).val())});
+        $("input[name='devices[]']").map(function(){deviceIdArr.push($(this).val())});
+        data.push({name: "materialNum", value: $("input[name='materials[]']").length});
+        data.push({name: "materialIdArr" , value: materialIdArr});
+        data.push({name: "deviceIdArr", value: deviceIdArr});
+        // 勾選星期
+        var checked = [];
+        $("input[name='time_type[]']:checked").each(function (){
+            checked.push(parseInt($(this).val()));
+        });
+
+        $.ajax({
+            url:"<?php echo Yii::app()->createUrl("FG_Manage_2/FgOrder/AjaxGetStatistic")?>",
+            type:"post",
+            data:data,
+            // dataType:'json',
+            beforeSend:function(){
+                $(".ajaxloading").show();
+                // alert(data);
+            },
+            success:function(e){
+                console.log('getAjax');
+                $(".ajaxloading").hide();
+                // 取得php端回傳資料
+                var periodArr = JSON.parse(e);
+                // console.log("periodArr="+periodArr);
+                var tdLength = new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate() + 1;
+               
+                    // 每一個td的值
+                    $('td.calendar-day').each(function(index){
+                        var dataDate = new Date($(this).attr('data-date'));
+                        // 先清空顏色
+                         $(this).css({"background-color":"white"});
+                         $(this).text("");
+                         for(var i in periodArr){
+                                for(var j in periodArr[i]){
+                                // 建立星期變數
+                                var dataweek = new Date(j).getDay();
+                                // 比對裝置和日期是否相同                              
+                                var tdDate = new Date(j);
+                                // if($(this).attr('data-device')==periodArr[i][j]["device_id"] && $(this).attr('data-date')==j){
+                                if($(this).attr('data-device')==periodArr[i][j]["device_id"]  && $(this).attr('data-date')==j){
+                                    $(this).text("");
+                                    var tdStr = "";
+                                    if(typeof(periodArr[i][j]["count"])=="undefined"){
+                                        tdStr = tdStr + "0";
+                                    }else{
+                                        tdStr = tdStr + periodArr[i][j]["count"];
+                                    }
+                                    if(typeof(periodArr[i][j]["materialNum"])!="undefined"){
+                                            tdStr = tdStr +"+" + periodArr[i][j]["materialNum"];
+                                    }
+                                    
+                                    $(this).text(tdStr);
+                                    
+                                   
+                                    // 判斷是否為空格後填色
+                                    if(typeof(periodArr[i][j]["resultMsg"])!="undefined"){
+                                        if(periodArr[i][j]["resultMsg"]==0){
+                                            $(this).css({"background-color":"#FF0070"});
+                                        }else if(periodArr[i][j]["resultMsg"]==1){
+                                            // 有資料
+                                            // $(this).text("1");
+                                            if(checked.indexOf(dataweek)!=-1){
+                                                $(this).css({"background-color":"#3BFB31"});
+                                            }else{
+                                                $(this).css({"background-color":"white"});
+                                            }
+                                        }else if(periodArr[i][j]["resultMsg"]==2){
+                                            // 沒資料
+                                            // $(this).text("2");
+                                            if(checked.indexOf(dataweek)!=-1){
+                                                 $(this).css({"background-color":"#3BFB31"});
+                                             }else{
+                                                $(this).css({"background-color":"white"});
+                                             }    
+                                        }
+
+                                    }else{
+                                        $(this).css({"background-color":"white"});
+                                    }
+                                   
+                                }else{
+                                  
+                                }
+                             } //end for j
+                        } //end for i  
+                            
+                    });
+                
+                        
+                // console.log(periodArr);
+                
+            }
+            
+        });
+    }
+</script>
 <style>
     #sect2,#sect3,#templateArea{
         display:none;
@@ -205,7 +336,7 @@
                 <div>
                     <table class="table table-bordered" id="materialResult">
                     <tr>
-                        <th>裝置類型</th>
+                        <!-- <th>裝置類型</th> -->
                         <th>品牌</th>
                         <th>素材</th>
                         <th>圖片</th>
@@ -214,7 +345,7 @@
                     </tr>
                     <?php foreach($oPackageItem as $key=>$val){?>
                     <tr>
-                        <td><?= $val->oMaterial->oDeviceType->name?></td>
+                        
                         <td><?= $val->oMaterial->oBrand->name?></td>
                         <td><?= $val->oMaterial->name?></td>
                         <td>
@@ -252,8 +383,8 @@
                         <input type="hidden" name="materials[]" value="<?= $val->material_id?>">
                         <?php }?>
                         活動名稱:<input type="text" name="name" value="<?= $model->name?>"><br>
-                        起始時間:<input type="text" style="width:150px" name="s_date" value="<?= $model->s_date?>"><br>
-                        結束時間:<input type="text" style="width:150px" name="e_date" value="<?= $model->e_date?>"><br>
+                        起始時間:<input type="text" style="width:150px" name="s_date" value="<?= ($model->s_date=="")?date("Y-m-d"):($model->s_date)?>"><br>
+                        結束時間:<input type="text" style="width:150px" name="e_date" value="<?= ($model->e_date=="")?date("Y-m-d",strtotime(date("Y-m-d"))+7*24*60*60):($model->e_date)?>"><br>
                         指定星期:<br>
                         <input type="checkbox" value="1" name="time_type[]" <?php if($model->parserTimeType(1)){?>checked<?php }?>>星期一&nbsp;&nbsp;
                         <input type="checkbox" value="2" name="time_type[]" <?php if($model->parserTimeType(2)){?>checked<?php }?>>星期二&nbsp;&nbsp;
@@ -263,9 +394,13 @@
                         <input type="checkbox" value="6" name="time_type[]" <?php if($model->parserTimeType(6)){?>checked<?php }?>>星期六&nbsp;&nbsp;
                         <input type="checkbox" value="0" name="time_type[]" <?php if($model->parserTimeType('0')){?>checked<?php }?>>星期日<br>
                         狀態:
-                        <select>
-                            <option value="1" <?php if($model->status == 1) echo "selected";?>>上架</option>
-                            <option value="0" <?php if($model->status == '0') echo "selected";?>>下架</option>
+                        <select name="status">
+                            <option value="0" <?php if($model->status == 0) echo "selected";?>>執行中</option>
+                            <option value="1" <?php if($model->status == 1) echo "selected";?>>暫停</option>
+                            <option value="2" <?php if($model->status == 2) echo "selected";?>>中止</option>
+                            <option value="3" <?php if($model->status == 3) echo "selected";?>>結束</option>
+                            <!-- <option value="1" <?php if($model->status == 1) echo "selected";?>>上架</option>
+                            <option value="0" <?php if($model->status == '0') echo "selected";?>>下架</option> -->
                         </select>
                         <br>
                         分類:
@@ -276,11 +411,16 @@
                         <?php endforeach;?>
                     </form>
                 </div>
+                <div id="calendar-results"></div>
                 <div>
                     <button type="button" class="btn btn-default" id="gobackSect2">上一步</button>
                     <button type="button" class="btn btn-default" id="submitMyData">送出</button>
                 </div>
             </div>
+            <?php
+               // $this->renderPartial("_monthTableDiv",array("orderModel"=>$model));
+               
+            ?>
         </div>
         <!--END 場景3-->
         
@@ -295,6 +435,7 @@
             if($("#branchResult").find("tr td").length > 0){
                 $("#sect1").hide();
                 $("#sect2").show();
+
             }else{
                 alert("尚未選擇裝置");
             }
@@ -304,10 +445,13 @@
             if($("#materialResult").find("tr td").length > 0){
                 $("#sect2").hide();
                 $("#sect3").show();
+                //1127取得日期Table
+                sendAjax();
+                
             }else{
                 alert("尚未選擇素材");
             }
-        })
+        });
         
         $("#gobackSect1").on("click",function(){
             $("#sect2").hide();

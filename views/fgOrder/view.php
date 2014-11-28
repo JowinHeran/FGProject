@@ -20,11 +20,15 @@
     'data'=>$model,
     'attributes'=>array(
 		'id',
-		array('name'=>'篇名','value'=>$model->getMaterial("material")),
-		array('name'=>'品牌','value'=>$model->getMaterial("brand")),
+		array('name'=>'篇名','type'=>'raw','value'=>$model->getMaterial("material")),
+		array('name'=>'品牌','type'=>'raw','value'=>$model->getMaterial("brand")),
+		array('name'=>'通路','type'=>'raw','value'=>$model->getPlace()),
+		array('name'=>'素材預覽(橫)','type'=>'raw','value'=>$model->getMaterial("mimage")),
+		array('name'=>'進階互動(Yes/No)','type'=>'raw','value'=>$model->getMaterial("question")),
 		'name',
         's_date',
         'e_date',
         array('name'=>'status','value'=>$model->getStatus()),
+        array('name'=>'活動成效','type'=>'raw','value'=>$model->getMaterial("remark")),
 	),
 )); ?>
